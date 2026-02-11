@@ -25,3 +25,15 @@ describe('transcribe endpoint', () => {
     expect(response.body.transcript).toContain('audio/webm');
   });
 });
+
+describe('generate packet endpoint', () => {
+  it('returns a packet for valid input', async () => {
+    const app = createApp();
+
+    const response = await request(app).post('/v1/generate-packet').send({ raw_text: 'add milk' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.packet.raw_text).toBe('add milk');
+  });
+});

@@ -3,11 +3,12 @@ import './App.css';
 import { ClarificationModal } from './components/ClarificationModal';
 import { RecentList } from './components/RecentList';
 import { submitToNormaliser } from './lib/api';
-import { buildPacket } from './lib/packet';
+import { generatePacketFromText } from './lib/packetGeneration';
 import { createRecorder } from './lib/recorder';
 import { toResponseViewModel, type ResponseViewModel } from './lib/response';
-import type { ClarificationQuestion } from './lib/schemas';
+import { parsePacket, type ClarificationQuestion, type LightIntentPacket } from './lib/schemas';
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from './lib/storage';
+import { logTelemetry } from './lib/telemetry';
 import { transcribeBlob } from './lib/transcribe';
 
 function App() {
@@ -22,6 +23,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [baseText, setBaseText] = useState('');
   const [mode, setMode] = useState<'text' | 'voice'>('text');
+  const [repairJson, setRepairJson] = useState('');
+  const [repairRawText, setRepairRawText] = useState('');
+  const [repairError, setRepairError] = useState('');
 
   const [recorder] = useState(() =>
     createRecorder((blob) => {
@@ -38,33 +42,62 @@ function App() {
 
   const isSubmitDisabled = useMemo(() => loading || activeInput.trim().length === 0, [loading, activeInput]);
 
-  async function submitPacket(rawText: string, clarifications?: Record<string, unknown>) {
+  async function submitPacket(packet: LightIntentPacket, rawText: string) {
+    const response = await submitToNormaliser(packet);
+    const view = toResponseViewModel(response);
+    setResponseView(view);
+
+    const newRecent = writeRecentSubmission({
+      id: packet.id,
+      rawText,
+      status: response.status,
+      createdAt: packet.created_at,
+    });
+    setRecentItems(newRecent);
+
+    if (view.type === 'needs_clarification') {
+      setClarificationQuestions(view.questions);
+      setBaseText(rawText);
+    } else {
+      setClarificationQuestions([]);
+    }
+  }
+
+  async function generateAndSubmit(rawText: string, clarifications?: Record<string, unknown>) {
+    setLoading(true);
+    setRepairError('');
+    try {
+      const generated = await generatePacketFromText(rawText, clarifications);
+      if (generated.status === 'repair_required') {
+        setRepairRawText(rawText);
+        setRepairJson(generated.raw_output || '{}');
+        setRepairError(generated.error);
+        logTelemetry('packet_repair_required', { error: generated.error, raw_output: generated.raw_output });
+        return;
+      }
+
+      await submitPacket(generated.packet, rawText);
+      logTelemetry('packet_generated', { packet_id: generated.packet.id });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown submission error';
+      setResponseView({ type: 'error', message });
+      logTelemetry('packet_generation_error', { message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitRepairedPacket() {
     setLoading(true);
     try {
-      const packet = buildPacket(rawText, clarifications);
-      const response = await submitToNormaliser(packet);
-      const view = toResponseViewModel(response);
-      setResponseView(view);
-
-      const newRecent = writeRecentSubmission({
-        id: packet.id,
-        rawText,
-        status: response.status,
-        createdAt: packet.created_at,
-      });
-      setRecentItems(newRecent);
-
-      if (view.type === 'needs_clarification') {
-        setClarificationQuestions(view.questions);
-        setBaseText(rawText);
-      } else {
-        setClarificationQuestions([]);
-      }
+      const packet = parsePacket(JSON.parse(repairJson));
+      await submitPacket(packet, repairRawText || packet.raw_text);
+      setRepairJson('');
+      setRepairError('');
     } catch (error) {
-      setResponseView({
-        type: 'error',
-        message: error instanceof Error ? error.message : 'Unknown submission error',
-      });
+      const message = error instanceof Error ? error.message : 'Repair validation failed';
+      setRepairError(message);
+      logTelemetry('packet_repair_error', { message, repairJson });
     } finally {
       setLoading(false);
     }
@@ -134,8 +167,8 @@ function App() {
             placeholder="Paste or type a task"
             rows={6}
           />
-          <button type="button" onClick={() => submitPacket(textInput)} disabled={isSubmitDisabled}>
-            {loading ? 'Submitting...' : 'Submit to normaliser'}
+          <button type="button" onClick={() => generateAndSubmit(textInput)} disabled={isSubmitDisabled}>
+            {loading ? 'Submitting...' : 'Generate packet and submit'}
           </button>
         </section>
       ) : (
@@ -160,11 +193,23 @@ function App() {
             placeholder="Transcript appears here"
             rows={6}
           />
-          <button type="button" onClick={() => submitPacket(transcriptText)} disabled={isSubmitDisabled}>
-            {loading ? 'Submitting...' : 'Submit transcript'}
+          <button type="button" onClick={() => generateAndSubmit(transcriptText)} disabled={isSubmitDisabled}>
+            {loading ? 'Submitting...' : 'Generate packet and submit transcript'}
           </button>
         </section>
       )}
+
+      {repairJson ? (
+        <section className="response-panel">
+          <h2>Repair Packet JSON</h2>
+          <p>Generated output failed schema validation. Edit JSON then resubmit.</p>
+          {repairError ? <p className="status status-error">{repairError}</p> : null}
+          <textarea value={repairJson} onChange={(event) => setRepairJson(event.target.value)} rows={10} />
+          <button type="button" onClick={submitRepairedPacket} disabled={loading}>
+            Submit repaired packet
+          </button>
+        </section>
+      ) : null}
 
       <section className="response-panel">
         <h2>Response</h2>
@@ -191,7 +236,7 @@ function App() {
         onCancel={() => setClarificationQuestions([])}
         onSubmit={(answers) => {
           setClarificationQuestions([]);
-          submitPacket(baseText || activeInput, answers);
+          generateAndSubmit(baseText || activeInput, answers);
         }}
       />
     </main>
