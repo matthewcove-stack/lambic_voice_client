@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lambiclabs.dev/schemas/light_intent_packet.schema.json",
+  "title": "LightIntentPacket",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "created_at",
+    "source",
+    "raw_text"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "e.g. 1.0.0"
+    },
+    "id": {
+      "type": "string",
+      "description": "client-generated idempotency key (uuid)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "channel"
+      ],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": [
+            "voice_intake_app"
+          ]
+        },
+        "device": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "app_version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "raw_text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Transcript or typed text"
+    },
+    "language": {
+      "type": "string",
+      "default": "en"
+    },
+    "clarifications": {
+      "type": "object",
+      "description": "User answers to clarification questions from the normaliser",
+      "additionalProperties": true
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "uri"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "audio",
+              "image",
+              "file"
+            ]
+          },
+          "uri": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lambiclabs.dev/schemas/normaliser_response.schema.json",
+  "title": "NormaliserResponse",
+  "type": "object",
+  "required": [
+    "status",
+    "request_id"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "needs_clarification",
+        "rejected",
+        "error"
+      ]
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": true
+    },
+    "clarification": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "questions"
+      ],
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "prompt",
+              "type"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "key used to store answer in packet.clarifications"
+              },
+              "prompt": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "choice",
+                  "boolean",
+                  "number",
+                  "project_ref"
+                ]
+              },
+              "choices": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

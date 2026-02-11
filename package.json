@@ -1,0 +1,7 @@
+{
+  "name": "lambic-voice-intake",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}
