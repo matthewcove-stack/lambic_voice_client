@@ -8,16 +8,32 @@
 
 .intake-panel,
 .response-panel,
-.recent-panel {
+.recent-panel,
+.mode-toggle {
   background: #ffffff;
   border: 1px solid #d6d9ce;
   border-radius: 10px;
   padding: 16px;
 }
 
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-toggle .active {
+  background: #d4ebe0;
+}
+
 .intake-panel {
   display: grid;
   gap: 10px;
+}
+
+.recording-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 textarea {
