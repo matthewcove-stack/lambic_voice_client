@@ -1,7 +1,5 @@
 {
   "name": "lambic-voice-intake",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ]
+  "packageManager": "pnpm@10.19.0"
 }

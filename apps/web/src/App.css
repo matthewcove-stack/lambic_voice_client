@@ -1,0 +1,91 @@
+.app-shell {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.intake-panel,
+.response-panel,
+.recent-panel {
+  background: #ffffff;
+  border: 1px solid #d6d9ce;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.intake-panel {
+  display: grid;
+  gap: 10px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+button {
+  max-width: max-content;
+}
+
+.status {
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.status-accepted {
+  color: #12653a;
+}
+
+.status-needs_clarification {
+  color: #8b6d10;
+}
+
+.status-rejected,
+.status-error {
+  color: #8b1c1c;
+}
+
+.recent-panel ul {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+}
+
+.recent-panel li {
+  list-style: none;
+  border-top: 1px solid #ecefe5;
+  padding-top: 8px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 35%);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.modal {
+  width: min(640px, 100%);
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.modal form {
+  display: grid;
+  gap: 10px;
+}
+
+.modal-field {
+  display: grid;
+  gap: 6px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
