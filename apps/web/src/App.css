@@ -105,3 +105,15 @@ button {
   display: flex;
   gap: 8px;
 }
+
+.recent-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.recent-filters input,
+.recent-filters select {
+  padding: 4px 8px;
+}

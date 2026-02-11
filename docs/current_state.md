@@ -1,32 +1,32 @@
 # Current State (authoritative)
 
-Status: **Phase 3 completed, Phase 4 in progress.**
+Status: **Phases 1-4 implemented.**
 
 ## Implemented
-- Repo kickoff artifacts and contracts.
-- Phase 1 web client in `apps/web`:
-  - Text intake
-  - Normaliser integration
-  - Clarification loop
-  - Local recent history
-  - Schema validation + tests
-- Phase 2 voice and transcription:
-  - Voice recording UI (start/stop)
-  - Transcription API upload flow
-  - Editable transcript review before submit
-  - Thin transcription proxy in `apps/api`
-  - Tests for transcription web/api paths
-- Phase 3 packet generation:
-  - LLM packet-generation endpoint in `apps/api` (`POST /v1/generate-packet`)
-  - Provider adapter with deterministic fallback when key is absent
-  - Strict JSON extraction and schema validation
-  - Prompt template in `apps/web/src/prompts/lightIntentPrompt.ts`
-  - Web integration to generate packet before normaliser submit
-  - Repair flow UI for invalid model output
-  - Local telemetry with secret redaction and tests
+- Repo kickoff artifacts and stable contracts in `contracts/`.
+- `apps/web` React + Vite + TypeScript client with:
+  - Text intake and voice intake modes
+  - Recording + transcription flow with transcript review/edit
+  - LLM packet-generation call path with prompt templates
+  - Strict packet/response schema validation
+  - Clarification loop modal and resubmission
+  - Repair flow for invalid generated JSON
+  - Local telemetry with secret redaction
+  - Recent submissions UI with filtering and reuse
+  - Offline queue + background retry for normaliser submissions
+  - Optional normaliser API key header support
+- `apps/api` thin proxy service with:
+  - `POST /v1/transcribe` for audio transcription
+  - `POST /v1/generate-packet` for LLM-backed packet generation
+  - Deterministic fallbacks when provider key is absent
+  - Strict JSON extraction + packet validation
+- Documentation updates:
+  - `docs/cors_guidance.md`
+  - `docs/pwa_install_guidance.md`
 
-## Not implemented
-- Phase 4 hardening (offline queue, background retry, ergonomics)
+## Verification status
+- `apps/web`: lint, typecheck, test, build passing
+- `apps/api`: lint, typecheck, test, build passing
 
 ## Next step
-Implement **Phase 4** from `docs/phases.md`: offline queue, background retry, improved history UX, optional API-key auth support, and PWA install guidance.
+Run end-to-end integration against your live Intent Normaliser and tune provider prompts/models for production behavior.

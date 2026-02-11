@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { ClarificationModal } from './components/ClarificationModal';
 import { RecentList } from './components/RecentList';
 import { submitToNormaliser } from './lib/api';
 import { generatePacketFromText } from './lib/packetGeneration';
+import { enqueueSubmission, processQueue, readQueue } from './lib/queue';
 import { createRecorder } from './lib/recorder';
 import { toResponseViewModel, type ResponseViewModel } from './lib/response';
 import { parsePacket, type ClarificationQuestion, type LightIntentPacket } from './lib/schemas';
@@ -26,6 +27,7 @@ function App() {
   const [repairJson, setRepairJson] = useState('');
   const [repairRawText, setRepairRawText] = useState('');
   const [repairError, setRepairError] = useState('');
+  const [queuedCount, setQueuedCount] = useState<number>(() => readQueue().length);
 
   const [recorder] = useState(() =>
     createRecorder((blob) => {
@@ -33,16 +35,10 @@ function App() {
     }),
   );
 
-  const activeInput = useMemo(() => {
-    if (mode === 'voice') {
-      return transcriptText;
-    }
-    return textInput;
-  }, [mode, textInput, transcriptText]);
-
+  const activeInput = useMemo(() => (mode === 'voice' ? transcriptText : textInput), [mode, textInput, transcriptText]);
   const isSubmitDisabled = useMemo(() => loading || activeInput.trim().length === 0, [loading, activeInput]);
 
-  async function submitPacket(packet: LightIntentPacket, rawText: string) {
+  const submitPacket = useCallback(async (packet: LightIntentPacket, rawText: string) => {
     const response = await submitToNormaliser(packet);
     const view = toResponseViewModel(response);
     setResponseView(view);
@@ -61,7 +57,52 @@ function App() {
     } else {
       setClarificationQuestions([]);
     }
+  }, []);
+
+  async function submitOrQueue(packet: LightIntentPacket, rawText: string) {
+    if (!navigator.onLine) {
+      const queue = enqueueSubmission(packet, rawText);
+      setQueuedCount(queue.length);
+      setResponseView({ type: 'accepted', message: 'Offline: packet queued for background retry.' });
+      return;
+    }
+
+    try {
+      await submitPacket(packet, rawText);
+    } catch (error) {
+      const queue = enqueueSubmission(packet, rawText);
+      setQueuedCount(queue.length);
+      const message = error instanceof Error ? error.message : 'Submission failed';
+      setResponseView({ type: 'error', message: `${message}. Packet queued for retry.` });
+    }
   }
+
+  useEffect(() => {
+    const retry = async () => {
+      if (!navigator.onLine) {
+        return;
+      }
+      const remaining = await processQueue(async (packet, rawText) => {
+        await submitPacket(packet, rawText);
+      });
+      setQueuedCount(remaining.length);
+    };
+
+    const onlineHandler = () => {
+      void retry();
+    };
+
+    const interval = window.setInterval(() => {
+      void retry();
+    }, 15000);
+
+    window.addEventListener('online', onlineHandler);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('online', onlineHandler);
+    };
+  }, [submitPacket]);
 
   async function generateAndSubmit(rawText: string, clarifications?: Record<string, unknown>) {
     setLoading(true);
@@ -76,7 +117,7 @@ function App() {
         return;
       }
 
-      await submitPacket(generated.packet, rawText);
+      await submitOrQueue(generated.packet, rawText);
       logTelemetry('packet_generated', { packet_id: generated.packet.id });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown submission error';
@@ -91,7 +132,7 @@ function App() {
     setLoading(true);
     try {
       const packet = parsePacket(JSON.parse(repairJson));
-      await submitPacket(packet, repairRawText || packet.raw_text);
+      await submitOrQueue(packet, repairRawText || packet.raw_text);
       setRepairJson('');
       setRepairError('');
     } catch (error) {
@@ -146,6 +187,7 @@ function App() {
       <header>
         <h1>Lambic Voice Intake</h1>
         <p>Text and voice intake to intent normaliser.</p>
+        <p>Retry queue: {queuedCount}</p>
       </header>
 
       <section className="mode-toggle">
