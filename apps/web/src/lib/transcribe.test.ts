@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { transcribeBlob } from './transcribe';
+import { transcribeAudio } from './transcribe';
 
-describe('transcribeBlob', () => {
+describe('transcribeAudio', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -10,21 +10,23 @@ describe('transcribeBlob', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () =>
-        new Response(JSON.stringify({ transcript: 'buy milk' }), {
+        new Response(JSON.stringify({ text: 'buy milk' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
       ),
     );
 
-    const transcript = await transcribeBlob(new Blob(['audio']));
+    const result = await transcribeAudio({ baseUrl: 'http://localhost:8787', blob: new Blob(['audio']) });
 
-    expect(transcript).toBe('buy milk');
+    expect(result.text).toBe('buy milk');
   });
 
   it('throws on non-200 responses', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })));
 
-    await expect(transcribeBlob(new Blob(['audio']))).rejects.toThrow('Transcription request failed');
+    await expect(transcribeAudio({ baseUrl: 'http://localhost:8787', blob: new Blob(['audio']) })).rejects.toThrow(
+      'Transcription failed',
+    );
   });
 });

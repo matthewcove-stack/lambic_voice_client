@@ -1,68 +1,62 @@
-import cors from 'cors';
-import express, { type Request, type Response } from 'express';
-import multer from 'multer';
-import { z } from 'zod';
-import { generatePacket } from './lib/packetGenerator.js';
-import { transcribeAudio } from './lib/transcriber.js';
+import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
+import Fastify from "fastify";
+import type { Env } from "./env.js";
+import { loadEnv } from "./env.js";
+import { transcribeAudio } from "./openai_transcribe.js";
 
-const upload = multer({ storage: multer.memoryStorage() });
-const generatePacketRequestSchema = z.object({
-  raw_text: z.string().min(1),
-  clarifications: z.record(z.string(), z.unknown()).optional(),
-  prompt: z.string().optional(),
-  source: z
-    .object({
-      device: z.string().optional(),
-      platform: z.string().optional(),
-      appVersion: z.string().optional(),
-    })
-    .optional(),
-});
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
-export function createApp() {
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
+export function createApp(inputEnv?: Env) {
+  const env = inputEnv ?? loadEnv();
 
-  app.get('/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok' });
+  const app = Fastify({
+    logger: true,
+    bodyLimit: MAX_UPLOAD_BYTES,
   });
 
-  app.post('/v1/transcribe', upload.single('audio'), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: 'Missing audio file in "audio" form field' });
-        return;
-      }
+  void app.register(multipart, {
+    limits: { fileSize: MAX_UPLOAD_BYTES },
+  });
 
-      const transcript = await transcribeAudio({
-        buffer: req.file.buffer,
-        mimetype: req.file.mimetype,
-        filename: req.file.originalname || 'recording.webm',
-      });
+  void app.register(cors, {
+    origin: env.CORS_ORIGINS.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+  });
 
-      res.json({ transcript });
-    } catch (error) {
-      res.status(500).json({
-        error: error instanceof Error ? error.message : 'Unknown transcription error',
-      });
+  app.get("/healthz", async () => ({ ok: true }));
+
+  app.post("/v1/transcribe", async (req, reply) => {
+    if (!req.isMultipart()) {
+      return reply.code(400).send({ error: "Missing file field 'audio'" });
     }
-  });
 
-  app.post('/v1/generate-packet', async (req: Request, res: Response) => {
+    const file = await req.file({ limits: { fileSize: MAX_UPLOAD_BYTES } });
+    if (!file) {
+      return reply.code(400).send({ error: "Missing file field 'audio'" });
+    }
+
+    if (file.fieldname !== "audio") {
+      return reply.code(400).send({ error: "Expected field name 'audio'" });
+    }
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of file.file) {
+      chunks.push(chunk as Buffer);
+    }
+
     try {
-      const input = generatePacketRequestSchema.parse(req.body);
-      const result = await generatePacket({
-        rawText: input.raw_text,
-        clarifications: input.clarifications,
-        promptText: input.prompt,
-        source: input.source,
+      const result = await transcribeAudio({
+        env,
+        filename: file.filename ?? "audio.webm",
+        mimeType: file.mimetype ?? "audio/webm",
+        buffer: Buffer.concat(chunks),
       });
-      res.json(result);
+      return reply.send(result);
     } catch (error) {
-      res.status(400).json({
-        error: error instanceof Error ? error.message : 'Invalid request',
-      });
+      const message = error instanceof Error ? error.message : "Transcription failed";
+      return reply.code(500).send({ error: message });
     }
   });
 

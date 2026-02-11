@@ -1,30 +1,24 @@
-const TRANSCRIBE_BASE_URL = import.meta.env.VITE_TRANSCRIBE_BASE_URL ?? 'http://localhost:8787';
+export async function transcribeAudio(params: {
+  baseUrl: string;
+  blob: Blob;
+  filename?: string;
+}): Promise<{ text: string }> {
+  const { baseUrl, blob, filename = "audio.webm" } = params;
 
-type TranscribeResponse = {
-  transcript: string;
-};
+  const form = new FormData();
+  form.append("audio", blob, filename);
 
-export async function transcribeBlob(blob: Blob): Promise<string> {
-  if (!TRANSCRIBE_BASE_URL) {
-    throw new Error('Missing VITE_TRANSCRIBE_BASE_URL');
-  }
-
-  const formData = new FormData();
-  formData.append('audio', blob, 'recording.webm');
-
-  const response = await fetch(`${TRANSCRIBE_BASE_URL}/v1/transcribe`, {
-    method: 'POST',
-    body: formData,
+  const resp = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/transcribe`, {
+    method: "POST",
+    body: form
   });
 
-  if (!response.ok) {
-    throw new Error(`Transcription request failed with ${response.status}`);
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error(`Transcription failed (${resp.status}): ${t}`);
   }
 
-  const payload = (await response.json()) as TranscribeResponse;
-  if (!payload.transcript) {
-    throw new Error('Transcription response missing transcript');
-  }
-
-  return payload.transcript;
+  const json = (await resp.json()) as { text?: unknown };
+  if (typeof json.text !== "string") throw new Error("Bad transcription response");
+  return { text: json.text };
 }

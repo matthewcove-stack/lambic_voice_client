@@ -1,17 +1,19 @@
-import js from '@eslint/js';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
-import { defineConfig, globalIgnores } from 'eslint/config';
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 
-export default defineConfig([
-  globalIgnores(['dist']),
+export default [
   {
-    files: ['**/*.ts'],
-    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    ignores: ["dist/**", "node_modules/**"],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'module',
-      globals: globals.node,
+      sourceType: "module"
     },
-  },
-]);
+    rules: {
+      "no-console": "off"
+    }
+  }
+];

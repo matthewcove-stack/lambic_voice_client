@@ -10,7 +10,7 @@ export const sourceSchema = z.object({
 export const lightIntentPacketSchema = z.object({
   schema_version: z.string(),
   id: z.string(),
-  created_at: z.iso.datetime(),
+  created_at: z.string().datetime(),
   source: sourceSchema,
   raw_text: z.string().min(1),
   language: z.string().optional(),
