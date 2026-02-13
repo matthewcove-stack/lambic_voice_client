@@ -6,6 +6,7 @@ const EnvSchema = z.object({
   OPENAI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
   PORT: z.coerce.number().int().positive().default(8787),
   CORS_ORIGINS: z.string().default("http://localhost:5173,http://localhost:4173"),
+  RATE_LIMIT_RPM: z.coerce.number().int().positive().default(120),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

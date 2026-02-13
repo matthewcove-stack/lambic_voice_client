@@ -12,6 +12,7 @@ const testEnv: Env = {
   OPENAI_BASE_URL: "https://api.openai.com/v1",
   PORT: 8787,
   CORS_ORIGINS: "http://localhost:5173",
+  RATE_LIMIT_RPM: 120,
 };
 
 afterEach(() => {
