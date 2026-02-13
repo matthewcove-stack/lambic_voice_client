@@ -56,3 +56,23 @@ Exit criteria:
 - Better recent-history UI
 - Optional auth (API key in header, etc.)
 - Packaging (PWA install guidance)
+
+---
+
+## MVP to Market alignment
+
+This repo ships in phases coordinated by `brain_os/docs/mvp_to_market.md`.
+
+### Phase 1 (MVP vertical slice)
+- Submit Light Intent Packet to `intent_normaliser` (`POST /v1/intents`)
+- Use `Authorization: Bearer ...` (no x-api-key)
+- Parse and render the canonical receipt/outcome envelope
+- Minimal clarification UI (answer questions back to the normaliser)
+
+### Phase 2 (daily-useful actions)
+- Destination picker supports: Task, Shopping/List item, Note
+- Packet includes a deterministic `target` for routing
+
+### Phase 3 (launch packaging)
+- Containerize web+api or provide a production runbook
+- Health checks + rate limiting + minimal observability
