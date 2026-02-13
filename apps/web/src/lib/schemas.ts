@@ -1,60 +1,93 @@
 import { z } from 'zod';
 
-export const sourceSchema = z.object({
-  channel: z.literal('voice_intake_app'),
-  device: z.string().optional(),
-  platform: z.string().optional(),
-  app_version: z.string().optional(),
+export const intentPacketSchema = z.object({
+  kind: z.literal('intent'),
+  schema_version: z.literal('v1').optional(),
+  intent_type: z.enum(['create_task', 'update_task']).optional(),
+  natural_language: z.string().optional(),
+  fields: z.record(z.string(), z.unknown()).optional(),
+  source: z.string().optional(),
 });
 
-export const attachmentSchema = z.object({
-  type: z.enum(['audio', 'image', 'file']),
-  uri: z.string(),
-  mime_type: z.string().optional(),
-  sha256: z.string().optional(),
-});
-
-export const lightIntentPacketSchema = z.object({
-  schema_version: z.string(),
+export const clarificationCandidateSchema = z.object({
   id: z.string(),
-  created_at: z.iso.datetime(),
-  source: sourceSchema,
-  raw_text: z.string().min(1),
-  language: z.string().optional(),
-  clarifications: z.record(z.string(), z.unknown()).optional(),
-  attachments: z.array(attachmentSchema).optional(),
-});
-
-export const clarificationQuestionSchema = z.object({
-  key: z.string(),
-  prompt: z.string(),
-  type: z.enum(['string', 'choice', 'boolean', 'number', 'project_ref']),
-  choices: z.array(z.string()).optional(),
+  label: z.string(),
+  meta: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const clarificationSchema = z
   .object({
-    questions: z.array(clarificationQuestionSchema),
+    clarification_id: z.string(),
+    intent_id: z.string(),
+    question: z.string(),
+    expected_answer_type: z.enum(['choice', 'free_text', 'date', 'datetime']),
+    candidates: z.array(clarificationCandidateSchema),
+    status: z.enum(['open', 'answered', 'expired']),
+    answer: z.record(z.string(), z.unknown()).optional(),
+    answered_at: z.iso.datetime().optional(),
   })
-  .nullable()
   .optional();
 
-export const normaliserResponseSchema = z.object({
-  status: z.enum(['accepted', 'needs_clarification', 'rejected', 'error']),
-  request_id: z.string(),
-  message: z.string().optional(),
-  result: z.record(z.string(), z.unknown()).nullable().optional(),
-  clarification: clarificationSchema,
+export const actionPacketSchema = z.object({
+  kind: z.literal('action'),
+  action: z.string().optional(),
+  intent_id: z.string().optional(),
+  correlation_id: z.string().optional(),
+  idempotency_key: z.string().optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
-export type LightIntentPacket = z.infer<typeof lightIntentPacketSchema>;
-export type ClarificationQuestion = z.infer<typeof clarificationQuestionSchema>;
-export type NormaliserResponse = z.infer<typeof normaliserResponseSchema>;
+export const planSchema = z.object({
+  actions: z.array(actionPacketSchema),
+});
 
-export function parsePacket(input: unknown): LightIntentPacket {
-  return lightIntentPacketSchema.parse(input);
+export const errorSchema = z
+  .object({
+    code: z.string(),
+    message: z.string(),
+    details: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+export const normaliserResponseSchema = z
+  .object({
+    status: z.enum(['ready', 'needs_clarification', 'rejected', 'accepted', 'executed', 'failed']),
+    intent_id: z.string(),
+    correlation_id: z.string(),
+    receipt_id: z.string().optional(),
+    trace_id: z.string().optional(),
+    idempotency_key: z.string().optional(),
+    message: z.string().optional(),
+    error_code: z.string().optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
+    plan: planSchema.optional(),
+    clarification: clarificationSchema,
+    error: errorSchema.optional(),
+  })
+  .passthrough();
+
+export const clarificationAnswerRequestSchema = z
+  .object({
+    choice_id: z.string().optional(),
+    answer_text: z.string().optional(),
+  })
+  .refine((value) => Boolean(value.choice_id || value.answer_text), {
+    message: 'choice_id or answer_text is required',
+  });
+
+export type IntentPacket = z.infer<typeof intentPacketSchema>;
+export type Clarification = z.infer<typeof clarificationSchema>;
+export type NormaliserResponse = z.infer<typeof normaliserResponseSchema>;
+export type ClarificationAnswerRequest = z.infer<typeof clarificationAnswerRequestSchema>;
+
+export function parsePacket(input: unknown): IntentPacket {
+  return intentPacketSchema.parse(input);
 }
 
 export function parseNormaliserResponse(input: unknown): NormaliserResponse {
   return normaliserResponseSchema.parse(input);
+}
+
+export function parseClarificationAnswerRequest(input: unknown): ClarificationAnswerRequest {
+  return clarificationAnswerRequestSchema.parse(input);
 }

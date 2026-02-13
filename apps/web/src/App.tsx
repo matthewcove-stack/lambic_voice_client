@@ -4,10 +4,10 @@ import { ClarificationModal } from "./components/ClarificationModal";
 import { RecentList } from "./components/RecentList";
 import { Recorder } from "./components/Recorder";
 import { TranscriptPanel } from "./components/TranscriptPanel";
-import { submitToNormaliser } from "./lib/api";
+import { submitClarificationAnswer, submitToNormaliser } from "./lib/api";
 import { buildPacket } from "./lib/packet";
 import { toResponseViewModel, type ResponseViewModel } from "./lib/response";
-import type { ClarificationQuestion } from "./lib/schemas";
+import type { Clarification } from "./lib/schemas";
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from "./lib/storage";
 import { transcribeAudio } from "./lib/transcribe";
 
@@ -23,8 +23,7 @@ function App() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
-  const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
-  const [baseText, setBaseText] = useState("");
+  const [clarification, setClarification] = useState<Clarification | null>(null);
   const [recentItems, setRecentItems] = useState<RecentSubmission[]>(() => readRecentSubmissions());
 
   const submitText = useMemo(() => transcript.trim() || textInput.trim(), [textInput, transcript]);
@@ -62,18 +61,17 @@ function App() {
       setResponseView(view);
 
       const nextRecent = writeRecentSubmission({
-        id: packet.id,
+        id: response.receipt_id ?? crypto.randomUUID(),
         rawText,
         status: response.status,
-        createdAt: packet.created_at,
+        createdAt: new Date().toISOString(),
       });
       setRecentItems(nextRecent);
 
       if (view.type === "needs_clarification") {
-        setClarificationQuestions(view.questions);
-        setBaseText(rawText);
+        setClarification(view.clarification);
       } else {
-        setClarificationQuestions([]);
+        setClarification(null);
       }
     } catch (error) {
       setResponseView({
@@ -130,6 +128,17 @@ function App() {
           <>
             <p className={`status status-${responseView.type}`}>{responseView.type}</p>
             <p>{responseView.message}</p>
+            {responseView.response ? (
+              <div>
+                <p>receipt_id: {responseView.response.receipt_id ?? "n/a"}</p>
+                <p>trace_id: {responseView.response.trace_id ?? "n/a"}</p>
+                <p>idempotency_key: {responseView.response.idempotency_key ?? "n/a"}</p>
+                <p>intent_id: {responseView.response.intent_id}</p>
+                {responseView.response.status === "executed" ? (
+                  <p>notion_task_id: {String(responseView.response.details?.notion_task_id ?? "n/a")}</p>
+                ) : null}
+              </div>
+            ) : null}
           </>
         ) : null}
       </section>
@@ -142,12 +151,37 @@ function App() {
       />
 
       <ClarificationModal
-        open={clarificationQuestions.length > 0}
-        questions={clarificationQuestions}
-        onCancel={() => setClarificationQuestions([])}
-        onSubmit={(answers) => {
-          setClarificationQuestions([]);
-          void submitRawText(baseText || submitText, answers);
+        open={Boolean(clarification)}
+        clarification={clarification}
+        onCancel={() => setClarification(null)}
+        onSubmit={(answer) => {
+          if (!clarification) {
+            return;
+          }
+          setClarification(null);
+          setIsSubmitting(true);
+          void submitClarificationAnswer(clarification.clarification_id, answer)
+            .then((response) => {
+              const view = toResponseViewModel(response);
+              setResponseView(view);
+              if (view.type === "needs_clarification") {
+                setClarification(view.clarification);
+              }
+            })
+            .catch((error: unknown) => {
+              setResponseView({
+                type: "error",
+                message: error instanceof Error ? error.message : "Clarification submission failed",
+                response: {
+                  status: "failed",
+                  intent_id: "unknown",
+                  correlation_id: "unknown",
+                },
+              });
+            })
+            .finally(() => {
+              setIsSubmitting(false);
+            });
         }}
       />
     </main>

@@ -10,11 +10,12 @@ describe('generatePacketFromText', () => {
           JSON.stringify({
             status: 'ok',
             packet: {
-              schema_version: '1.0.0',
-              id: 'p1',
-              created_at: new Date().toISOString(),
-              source: { channel: 'voice_intake_app' },
-              raw_text: 'test',
+              kind: 'intent',
+              schema_version: 'v1',
+              source: 'voice_intake_app',
+              intent_type: 'create_task',
+              natural_language: 'test',
+              fields: { title: 'test' },
             },
           }),
           { status: 200 },

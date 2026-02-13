@@ -1,28 +1,39 @@
 # Current State (authoritative)
 
-Status: **Phase 2 implemented (voice recording + transcription).**
+Status: **Phase 1 vertical slice aligned with intent_normaliser contract.**
 
 ## Implemented
-- Existing Phase 1 text intake + normaliser submission flow remains available.
-- `apps/api` now provides a Fastify transcription service:
-  - `POST /v1/transcribe` accepts multipart audio field `audio`
-  - Forwards audio to OpenAI `audio/transcriptions`
-  - Returns `{ "text": "..." }`
-  - Model controlled via `TRANSCRIBE_MODEL` (default `gpt-4o-mini-transcribe`, can set `gpt-4o-transcribe`)
-- `apps/web` now supports voice capture and transcript review:
-  - Record/stop with `MediaRecorder`
-  - Upload audio to `apps/api`
-  - Editable transcript panel
-  - "Send to normaliser" submits transcript when present, otherwise typed text fallback
+- Web app submits intents to `POST /v1/intents` using bearer auth.
+- Web app parses the canonical response envelope (`executed`, `failed`, `needs_clarification`, etc.).
+- Clarification flow is wired to `POST /v1/clarifications/{clarification_id}/answer`.
+- Response panel renders receipt metadata:
+  - `receipt_id`
+  - `trace_id`
+  - `idempotency_key`
+  - `intent_id`
+  - `details.notion_task_id` when executed
+- Voice transcription flow remains available via `apps/api` `POST /v1/transcribe`.
 
-## Not implemented in this phase
-- LLM-generated Light Intent Packet creation (Phase 3)
-- Context API / reasoning loop integration
-- Realtime streaming transcription
+## Required env vars
 
-## Known limitations
-- Browser support depends on `MediaRecorder` availability.
-- Mobile reliability depends on browser microphone permissions and codecs.
+Web (`apps/web/.env`):
+- `VITE_NORMALISER_BASE_URL=http://localhost:8000`
+- `VITE_NORMALISER_BEARER_TOKEN=<INTENT_SERVICE_TOKEN>`
+- `VITE_TRANSCRIBE_BASE_URL=http://localhost:8787`
 
-## Next step
-Proceed to Phase 3: provider-backed Light Intent Packet generation with strict JSON validation and repair handling.
+API (`apps/api/.env`):
+- `OPENAI_API_KEY=...`
+- optional overrides: `TRANSCRIBE_MODEL`, `OPENAI_BASE_URL`, `PORT`, `CORS_ORIGINS`
+
+## Manual test script
+1. Start stack:
+   - `docker compose -f brain_os/docker-compose.yml up --build`
+2. Start voice app:
+   - `pnpm -C lambic_voice_client install`
+   - `pnpm -C lambic_voice_client/apps/api dev`
+   - `pnpm -C lambic_voice_client/apps/web dev`
+3. Submit the same intent text twice.
+4. Confirm:
+   - response status is `executed` (or `needs_clarification` if input is ambiguous)
+   - receipt metadata is shown
+   - second identical submit returns the same `idempotency_key` and no duplicate task is created

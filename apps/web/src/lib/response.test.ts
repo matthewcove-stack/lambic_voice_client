@@ -5,26 +5,32 @@ describe('toResponseViewModel', () => {
   it('maps accepted responses', () => {
     const vm = toResponseViewModel({
       status: 'accepted',
-      request_id: 'req-1',
+      intent_id: 'intent-1',
+      correlation_id: 'corr-1',
       message: 'ok',
-      clarification: null,
     });
 
     expect(vm.type).toBe('accepted');
   });
 
-  it('exposes clarification questions', () => {
+  it('maps clarification payload', () => {
     const vm = toResponseViewModel({
       status: 'needs_clarification',
-      request_id: 'req-2',
+      intent_id: 'intent-2',
+      correlation_id: 'corr-2',
       clarification: {
-        questions: [{ key: 'due', prompt: 'Due when?', type: 'string' }],
+        clarification_id: 'clar-1',
+        intent_id: 'intent-2',
+        question: 'Due when?',
+        expected_answer_type: 'free_text',
+        candidates: [],
+        status: 'open',
       },
     });
 
     expect(vm.type).toBe('needs_clarification');
     if (vm.type === 'needs_clarification') {
-      expect(vm.questions[0]?.key).toBe('due');
+      expect(vm.clarification.clarification_id).toBe('clar-1');
     }
   });
 });

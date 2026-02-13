@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lambiclabs.dev/schemas/light_intent_packet.schema.json",
+  "$comment": "DEPRECATED: use notion_assistant_contracts/schemas/v1/intent_packet.schema.json as canonical.",
   "title": "LightIntentPacket",
   "type": "object",
   "required": [

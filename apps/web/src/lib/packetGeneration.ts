@@ -1,10 +1,10 @@
 import { buildLightIntentPrompt } from '../prompts/lightIntentPrompt';
-import { parsePacket, type LightIntentPacket } from './schemas';
+import { parsePacket, type IntentPacket } from './schemas';
 
 const LLM_BASE_URL = import.meta.env.VITE_PACKET_BASE_URL ?? import.meta.env.VITE_TRANSCRIBE_BASE_URL ?? 'http://localhost:8787';
 
 type GeneratePacketResponse =
-  | { status: 'ok'; packet: LightIntentPacket }
+  | { status: 'ok'; packet: IntentPacket }
   | { status: 'repair_required'; error: string; raw_output: string };
 
 export async function generatePacketFromText(

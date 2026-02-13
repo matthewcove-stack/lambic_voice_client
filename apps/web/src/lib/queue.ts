@@ -1,8 +1,8 @@
-import type { LightIntentPacket } from './schemas';
+import type { IntentPacket } from './schemas';
 
 export type QueuedSubmission = {
   id: string;
-  packet: LightIntentPacket;
+  packet: IntentPacket;
   rawText: string;
   attempts: number;
   queuedAt: string;
@@ -28,12 +28,12 @@ function writeQueue(items: QueuedSubmission[]) {
   localStorage.setItem(QUEUE_KEY, JSON.stringify(items));
 }
 
-export function enqueueSubmission(packet: LightIntentPacket, rawText: string): QueuedSubmission[] {
+export function enqueueSubmission(packet: IntentPacket, rawText: string): QueuedSubmission[] {
   const current = readQueue();
   const next = [
     ...current,
     {
-      id: packet.id,
+      id: crypto.randomUUID(),
       packet,
       rawText,
       attempts: 0,
@@ -45,7 +45,7 @@ export function enqueueSubmission(packet: LightIntentPacket, rawText: string): Q
 }
 
 export async function processQueue(
-  submit: (packet: LightIntentPacket, rawText: string) => Promise<void>,
+  submit: (packet: IntentPacket, rawText: string) => Promise<void>,
 ): Promise<QueuedSubmission[]> {
   const queue = readQueue();
   const remaining: QueuedSubmission[] = [];

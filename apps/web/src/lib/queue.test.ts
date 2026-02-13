@@ -3,11 +3,12 @@ import { enqueueSubmission, processQueue, readQueue } from './queue';
 
 describe('queue', () => {
   const packet = {
-    schema_version: '1.0.0',
-    id: 'p-1',
-    created_at: new Date().toISOString(),
-    source: { channel: 'voice_intake_app' as const },
-    raw_text: 'buy milk',
+    kind: 'intent' as const,
+    schema_version: 'v1' as const,
+    intent_type: 'create_task' as const,
+    source: 'voice_intake_app',
+    natural_language: 'buy milk',
+    fields: { title: 'buy milk' },
   };
 
   beforeEach(() => {

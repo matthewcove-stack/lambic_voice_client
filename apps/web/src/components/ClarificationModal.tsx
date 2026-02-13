@@ -1,16 +1,24 @@
-import type { ClarificationQuestion } from '../lib/schemas';
+import type { Clarification, ClarificationAnswerRequest } from '../lib/schemas';
 
 type ClarificationModalProps = {
   open: boolean;
-  questions: ClarificationQuestion[];
+  clarification: Clarification | null;
   onCancel: () => void;
-  onSubmit: (answers: Record<string, unknown>) => void;
+  onSubmit: (answer: ClarificationAnswerRequest) => void;
 };
 
-export function ClarificationModal({ open, questions, onCancel, onSubmit }: ClarificationModalProps) {
-  if (!open) {
+export function ClarificationModal({ open, clarification, onCancel, onSubmit }: ClarificationModalProps) {
+  if (!open || !clarification) {
     return null;
   }
+
+  const isChoice = clarification.expected_answer_type === 'choice';
+  const inputType =
+    clarification.expected_answer_type === 'date'
+      ? 'date'
+      : clarification.expected_answer_type === 'datetime'
+        ? 'datetime-local'
+        : 'text';
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Clarification required">
@@ -20,49 +28,36 @@ export function ClarificationModal({ open, questions, onCancel, onSubmit }: Clar
           onSubmit={(event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
-            const answers: Record<string, unknown> = {};
-            for (const question of questions) {
-              const value = formData.get(question.key);
-              if (question.type === 'boolean') {
-                answers[question.key] = value === 'true';
-                continue;
+            const payload: ClarificationAnswerRequest = {};
+            if (isChoice) {
+              const choiceId = formData.get('choice_id');
+              if (typeof choiceId === 'string' && choiceId) {
+                payload.choice_id = choiceId;
               }
-              if (question.type === 'number') {
-                answers[question.key] = value ? Number(value) : null;
-                continue;
+            } else {
+              const answerText = formData.get('answer_text');
+              if (typeof answerText === 'string' && answerText.trim()) {
+                payload.answer_text = answerText.trim();
               }
-              answers[question.key] = value;
             }
-            onSubmit(answers);
+            onSubmit(payload);
           }}
         >
-          {questions.map((question) => (
-            <label key={question.key} className="modal-field">
-              <span>{question.prompt}</span>
-              {question.type === 'choice' ? (
-                <select name={question.key} required>
-                  <option value="">Select</option>
-                  {(question.choices ?? []).map((choice) => (
-                    <option key={choice} value={choice}>
-                      {choice}
-                    </option>
-                  ))}
-                </select>
-              ) : question.type === 'boolean' ? (
-                <select name={question.key} required>
-                  <option value="">Select</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              ) : (
-                <input
-                  name={question.key}
-                  type={question.type === 'number' ? 'number' : 'text'}
-                  required
-                />
-              )}
-            </label>
-          ))}
+          <label className="modal-field">
+            <span>{clarification.question}</span>
+            {isChoice ? (
+              <select name="choice_id" required>
+                <option value="">Select</option>
+                {clarification.candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input name="answer_text" type={inputType} required />
+            )}
+          </label>
           <div className="modal-actions">
             <button type="button" onClick={onCancel}>
               Cancel
