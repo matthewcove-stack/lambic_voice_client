@@ -1,21 +1,18 @@
 import { z } from 'zod';
 
-export const sourceSchema = z.object({
-  channel: z.literal('voice_intake_app'),
-  device: z.string().optional(),
-  platform: z.string().optional(),
-  app_version: z.string().optional(),
+export const targetSchema = z.object({
+  kind: z.string(),
+  key: z.string().optional(),
 });
 
-export const lightIntentPacketSchema = z.object({
-  schema_version: z.string(),
-  id: z.string(),
-  created_at: z.string().datetime(),
-  source: sourceSchema,
-  raw_text: z.string().min(1),
-  language: z.string().optional(),
-  clarifications: z.record(z.string(), z.unknown()).optional(),
-  attachments: z.array(z.record(z.string(), z.unknown())).optional(),
+export const intentPacketSchema = z.object({
+  kind: z.literal('intent'),
+  schema_version: z.literal('v1').optional(),
+  intent_type: z.enum(['create_task', 'update_task']).optional(),
+  natural_language: z.string().optional(),
+  fields: z.record(z.string(), z.unknown()).optional(),
+  source: z.string().optional(),
+  target: targetSchema.optional(),
 });
 
-export type LightIntentPacket = z.infer<typeof lightIntentPacketSchema>;
+export type IntentPacket = z.infer<typeof intentPacketSchema>;

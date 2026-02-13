@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import { randomUUID } from "node:crypto";
 import type { Env } from "./env.js";
 import { loadEnv } from "./env.js";
+import { generatePacket } from "./lib/packetGenerator.js";
 import { transcribeAudio } from "./openai_transcribe.js";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -103,6 +104,32 @@ export function createApp(inputEnv?: Env) {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Transcription failed";
       req.log.error({ correlation_id: correlationId, error: message }, "transcription_failed");
+      return reply.code(500).send({ error: message });
+    }
+  });
+
+  app.post("/v1/generate-packet", async (req, reply) => {
+    const correlationId = (req as { correlationId?: string }).correlationId ?? "unknown";
+    const body = (req.body as { raw_text?: unknown; clarifications?: unknown; source?: unknown } | null) ?? null;
+
+    if (!body || typeof body.raw_text !== "string" || !body.raw_text.trim()) {
+      req.log.warn({ correlation_id: correlationId }, "invalid_generate_packet_request");
+      return reply.code(400).send({ error: "raw_text is required" });
+    }
+
+    try {
+      const result = await generatePacket({
+        rawText: body.raw_text,
+        clarifications:
+          body.clarifications && typeof body.clarifications === "object"
+            ? (body.clarifications as Record<string, unknown>)
+            : undefined,
+      });
+      req.log.info({ correlation_id: correlationId, status: result.status }, "generate_packet_complete");
+      return reply.send(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Packet generation failed";
+      req.log.error({ correlation_id: correlationId, error: message }, "generate_packet_failed");
       return reply.code(500).send({ error: message });
     }
   });

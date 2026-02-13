@@ -6,6 +6,22 @@ vi.mock("./openai_transcribe.js", () => ({
   transcribeAudio: vi.fn(async () => ({ text: "mock transcript" })),
 }));
 
+vi.mock("./lib/packetGenerator.js", () => ({
+  generatePacket: vi.fn(async () => ({
+    status: "ok",
+    packet: {
+      kind: "intent",
+      schema_version: "v1",
+      intent_type: "create_task",
+      natural_language: "mock",
+      fields: { title: "mock" },
+      source: "voice_intake_app",
+    },
+    confidence: 0.8,
+    clarifying_questions: [],
+  })),
+}));
+
 const testEnv: Env = {
   OPENAI_API_KEY: "test",
   TRANSCRIBE_MODEL: "gpt-4o-mini-transcribe",
@@ -54,6 +70,19 @@ describe("transcribe endpoint", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ text: "mock transcript" });
+    await app.close();
+  });
+
+  it("generates packet from raw text", async () => {
+    const app = createApp(testEnv);
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/generate-packet",
+      payload: { raw_text: "buy milk" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().status).toBe("ok");
     await app.close();
   });
 });

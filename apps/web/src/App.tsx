@@ -6,8 +6,9 @@ import { Recorder } from "./components/Recorder";
 import { TranscriptPanel } from "./components/TranscriptPanel";
 import { submitClarificationAnswer, submitToNormaliser } from "./lib/api";
 import { buildPacket, type Destination } from "./lib/packet";
+import { generatePacketFromText } from "./lib/packetGeneration";
 import { toResponseViewModel, type ResponseViewModel } from "./lib/response";
-import type { Clarification } from "./lib/schemas";
+import { parsePacket, type Clarification } from "./lib/schemas";
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from "./lib/storage";
 import { transcribeAudio } from "./lib/transcribe";
 
@@ -22,6 +23,8 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingPacket, setIsGeneratingPacket] = useState(false);
+  const [generatedPacketDraft, setGeneratedPacketDraft] = useState("");
   const [destination, setDestination] = useState<Destination>("task");
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
   const [clarification, setClarification] = useState<Clarification | null>(null);
@@ -84,6 +87,58 @@ function App() {
     }
   }
 
+  async function runAutoStructure(rawText: string) {
+    if (!rawText.trim()) {
+      setResponseView({ type: "error", message: "Enter text before auto-structuring." });
+      return;
+    }
+
+    setIsGeneratingPacket(true);
+    try {
+      const result = await generatePacketFromText(rawText);
+      if (result.status === "repair_required") {
+        setResponseView({
+          type: "error",
+          message: `Auto-structure failed: ${result.error}`,
+        });
+        return;
+      }
+      setGeneratedPacketDraft(JSON.stringify(result.packet, null, 2));
+    } catch (error) {
+      setResponseView({
+        type: "error",
+        message: error instanceof Error ? error.message : "Auto-structure failed",
+      });
+    } finally {
+      setIsGeneratingPacket(false);
+    }
+  }
+
+  async function submitGeneratedPacketDraft() {
+    if (!generatedPacketDraft.trim()) {
+      setResponseView({ type: "error", message: "No generated packet to submit." });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const parsed = parsePacket(JSON.parse(generatedPacketDraft));
+      const response = await submitToNormaliser(parsed);
+      const view = toResponseViewModel(response);
+      setResponseView(view);
+      if (view.type === "needs_clarification") {
+        setClarification(view.clarification);
+      }
+    } catch (error) {
+      setResponseView({
+        type: "error",
+        message: error instanceof Error ? error.message : "Generated packet submission failed",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <header>
@@ -128,9 +183,34 @@ function App() {
 
         <TranscriptPanel transcript={transcript} setTranscript={setTranscript} busy={isTranscribing} />
 
+        <button
+          type="button"
+          disabled={isGeneratingPacket || submitText.length === 0}
+          onClick={() => {
+            void runAutoStructure(submitText);
+          }}
+        >
+          {isGeneratingPacket ? "Auto-structuring..." : "Auto-structure"}
+        </button>
+
         <button type="button" disabled={isSubmitting || submitText.length === 0} onClick={() => submitRawText(submitText)}>
           {isSubmitting ? "Submitting..." : "Send to normaliser"}
         </button>
+
+        {generatedPacketDraft ? (
+          <>
+            <label htmlFor="generated-packet">Generated packet preview (editable)</label>
+            <textarea
+              id="generated-packet"
+              rows={12}
+              value={generatedPacketDraft}
+              onChange={(event) => setGeneratedPacketDraft(event.target.value)}
+            />
+            <button type="button" disabled={isSubmitting} onClick={() => void submitGeneratedPacketDraft()}>
+              Submit generated packet
+            </button>
+          </>
+        ) : null}
       </section>
 
       <section className="response-panel">

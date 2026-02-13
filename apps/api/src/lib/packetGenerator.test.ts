@@ -21,7 +21,8 @@ describe('generatePacket', () => {
 
     expect(result.status).toBe('ok');
     if (result.status === 'ok') {
-      expect(result.packet.raw_text).toBe('buy eggs');
+      expect(result.packet.natural_language).toBe('buy eggs');
+      expect(result.packet.fields?.title).toBe('buy eggs');
     }
 
     process.env.OPENAI_API_KEY = prev;

@@ -10,6 +10,10 @@ Status: **Phase 1 vertical slice aligned with intent_normaliser contract.**
   - Task
   - Shopping List Item
   - Note
+- Auto-structure flow:
+  - Calls `POST /v1/generate-packet`
+  - Shows editable packet preview
+  - Requires explicit user submit before execution
 - Response panel renders receipt metadata:
   - `receipt_id`
   - `trace_id`
