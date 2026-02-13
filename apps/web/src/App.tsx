@@ -5,7 +5,7 @@ import { RecentList } from "./components/RecentList";
 import { Recorder } from "./components/Recorder";
 import { TranscriptPanel } from "./components/TranscriptPanel";
 import { submitClarificationAnswer, submitToNormaliser } from "./lib/api";
-import { buildPacket } from "./lib/packet";
+import { buildPacket, type Destination } from "./lib/packet";
 import { toResponseViewModel, type ResponseViewModel } from "./lib/response";
 import type { Clarification } from "./lib/schemas";
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from "./lib/storage";
@@ -22,6 +22,7 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [destination, setDestination] = useState<Destination>("task");
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
   const [clarification, setClarification] = useState<Clarification | null>(null);
   const [recentItems, setRecentItems] = useState<RecentSubmission[]>(() => readRecentSubmissions());
@@ -55,7 +56,7 @@ function App() {
 
     setIsSubmitting(true);
     try {
-      const packet = buildPacket(rawText, clarifications);
+      const packet = buildPacket(rawText, destination, clarifications);
       const response = await submitToNormaliser(packet);
       const view = toResponseViewModel(response);
       setResponseView(view);
@@ -91,6 +92,17 @@ function App() {
       </header>
 
       <section className="intake-panel">
+        <label htmlFor="destination">Destination</label>
+        <select
+          id="destination"
+          value={destination}
+          onChange={(event) => setDestination(event.target.value as Destination)}
+        >
+          <option value="task">Task</option>
+          <option value="shopping_list">Shopping List Item</option>
+          <option value="note">Note</option>
+        </select>
+
         <label htmlFor="text-input">Typed text (fallback if no transcript)</label>
         <textarea
           id="text-input"

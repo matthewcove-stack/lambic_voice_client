@@ -7,6 +7,12 @@ export const intentPacketSchema = z.object({
   natural_language: z.string().optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   source: z.string().optional(),
+  target: z
+    .object({
+      kind: z.string(),
+      key: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const clarificationCandidateSchema = z.object({

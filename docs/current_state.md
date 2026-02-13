@@ -6,6 +6,10 @@ Status: **Phase 1 vertical slice aligned with intent_normaliser contract.**
 - Web app submits intents to `POST /v1/intents` using bearer auth.
 - Web app parses the canonical response envelope (`executed`, `failed`, `needs_clarification`, etc.).
 - Clarification flow is wired to `POST /v1/clarifications/{clarification_id}/answer`.
+- Destination picker routes intents to:
+  - Task
+  - Shopping List Item
+  - Note
 - Response panel renders receipt metadata:
   - `receipt_id`
   - `trace_id`
