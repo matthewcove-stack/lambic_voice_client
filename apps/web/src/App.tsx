@@ -97,9 +97,11 @@ function App() {
     try {
       const result = await generatePacketFromText(rawText);
       if (result.status === "repair_required") {
+        const fallbackPacket = buildPacket(rawText, destination);
+        setGeneratedPacketDraft(JSON.stringify(fallbackPacket, null, 2));
         setResponseView({
           type: "error",
-          message: `Auto-structure failed: ${result.error}`,
+          message: `Auto-structure failed: ${result.error}. Loaded fallback draft; review and submit.`,
         });
         return;
       }
