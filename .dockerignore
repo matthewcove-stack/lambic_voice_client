@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+**/dist
+**/.turbo
+**/.cache
+.git
+.gitignore
+npm-debug.log*
+pnpm-debug.log*

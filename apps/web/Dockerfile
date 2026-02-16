@@ -13,11 +13,8 @@ ENV VITE_NORMALISER_BEARER_TOKEN=$VITE_NORMALISER_BEARER_TOKEN
 ENV VITE_TRANSCRIBE_BASE_URL=$VITE_TRANSCRIBE_BASE_URL
 ENV VITE_PACKET_BASE_URL=$VITE_PACKET_BASE_URL
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --frozen-lockfile
-
 COPY . .
+RUN CI=true pnpm install --frozen-lockfile --prod=false
 RUN pnpm -C apps/web build
 
 FROM nginx:1.27-alpine AS runtime
