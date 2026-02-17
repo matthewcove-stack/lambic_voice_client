@@ -25,7 +25,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPacket, setIsGeneratingPacket] = useState(false);
   const [generatedPacketDraft, setGeneratedPacketDraft] = useState("");
-  const [destination, setDestination] = useState<Destination>("task");
+  const [destination, setDestination] = useState<Destination>("auto");
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
   const [clarification, setClarification] = useState<Clarification | null>(null);
   const [recentItems, setRecentItems] = useState<RecentSubmission[]>(() => readRecentSubmissions());
@@ -155,6 +155,7 @@ function App() {
           value={destination}
           onChange={(event) => setDestination(event.target.value as Destination)}
         >
+          <option value="auto">Auto</option>
           <option value="task">Task</option>
           <option value="shopping_list">Shopping List Item</option>
           <option value="note">Note</option>

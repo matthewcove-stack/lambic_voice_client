@@ -1,7 +1,7 @@
 import { parsePacket } from './schemas';
 import type { IntentPacket } from './schemas';
 
-export type Destination = 'task' | 'shopping_list' | 'note';
+export type Destination = 'auto' | 'task' | 'shopping_list' | 'note';
 
 export function buildPacket(
   rawText: string,
@@ -35,6 +35,13 @@ export function buildPacket(
               ...(clarifications ?? {}),
             },
           }
+        : destination === 'auto'
+          ? {
+              ...base,
+              fields: {
+                ...(clarifications ?? {}),
+              },
+            }
         : {
             ...base,
             intent_type: 'create_task' as const,
