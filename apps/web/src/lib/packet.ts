@@ -7,8 +7,13 @@ export function buildPacket(
   rawText: string,
   destination: Destination,
   clarifications?: Record<string, unknown>,
+  extraFields?: Record<string, unknown>,
 ): IntentPacket {
   const trimmed = rawText.trim();
+  const mergedFields = {
+    ...(extraFields ?? {}),
+    ...(clarifications ?? {}),
+  };
   const base = {
     kind: 'intent' as const,
     schema_version: 'v1' as const,
@@ -23,7 +28,7 @@ export function buildPacket(
           target: { kind: 'list', key: 'shopping_list' },
           fields: {
             item: trimmed,
-            ...(clarifications ?? {}),
+            ...mergedFields,
           },
         }
       : destination === 'note'
@@ -32,14 +37,14 @@ export function buildPacket(
             target: { kind: 'notes' },
             fields: {
               content: trimmed,
-              ...(clarifications ?? {}),
+              ...mergedFields,
             },
           }
         : destination === 'auto'
           ? {
               ...base,
               fields: {
-                ...(clarifications ?? {}),
+                ...mergedFields,
               },
             }
         : {
@@ -47,7 +52,7 @@ export function buildPacket(
             intent_type: 'create_task' as const,
             fields: {
               title: trimmed,
-              ...(clarifications ?? {}),
+              ...mergedFields,
             },
           };
 

@@ -41,6 +41,11 @@ textarea {
   resize: vertical;
 }
 
+input[type="url"],
+input[type="file"] {
+  width: 100%;
+}
+
 button {
   max-width: max-content;
 }
@@ -116,4 +121,11 @@ button {
 .recent-filters input,
 .recent-filters select {
   padding: 4px 8px;
+}
+
+.drop-zone {
+  border: 1px dashed #9aa08d;
+  border-radius: 8px;
+  padding: 10px;
+  color: #505748;
 }

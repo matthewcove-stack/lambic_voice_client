@@ -12,6 +12,44 @@ import { parsePacket, type Clarification } from "./lib/schemas";
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from "./lib/storage";
 import { transcribeAudio } from "./lib/transcribe";
 
+type AttachmentPayload = {
+  filename: string;
+  mime: string;
+  size: number;
+  sha256: string;
+  text?: string;
+};
+
+function isTextLikeFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (mime.startsWith("text/")) {
+    return true;
+  }
+  const name = file.name.toLowerCase();
+  return [".txt", ".md", ".json", ".csv", ".log", ".yml", ".yaml", ".xml"].some((suffix) => name.endsWith(suffix));
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function buildAttachmentPayload(file: File): Promise<AttachmentPayload> {
+  const text = isTextLikeFile(file) ? await file.text() : undefined;
+  const digestSource = text ?? `${file.name}:${file.type}:${file.size}`;
+  const sha256 = await sha256Hex(digestSource);
+  return {
+    filename: file.name,
+    mime: file.type || "application/octet-stream",
+    size: file.size,
+    sha256,
+    ...(text ? { text } : {}),
+  };
+}
+
 function App() {
   const transcribeBaseUrl = useMemo(
     () => import.meta.env.VITE_TRANSCRIBE_BASE_URL as string | undefined,
@@ -26,6 +64,10 @@ function App() {
   const [isGeneratingPacket, setIsGeneratingPacket] = useState(false);
   const [generatedPacketDraft, setGeneratedPacketDraft] = useState("");
   const [destination, setDestination] = useState<Destination>("auto");
+  const [urlInput, setUrlInput] = useState("");
+  const [urlComment, setUrlComment] = useState("");
+  const [attachment, setAttachment] = useState<AttachmentPayload | null>(null);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
   const [clarification, setClarification] = useState<Clarification | null>(null);
   const [recentItems, setRecentItems] = useState<RecentSubmission[]>(() => readRecentSubmissions());
@@ -59,7 +101,17 @@ function App() {
 
     setIsSubmitting(true);
     try {
-      const packet = buildPacket(rawText, destination, clarifications);
+      const extraFields: Record<string, unknown> = {};
+      if (urlInput.trim()) {
+        extraFields.url = urlInput.trim();
+      }
+      if (urlComment.trim()) {
+        extraFields.url_comment = urlComment.trim();
+      }
+      if (attachment) {
+        extraFields.attachment = attachment;
+      }
+      const packet = buildPacket(rawText, destination, clarifications, extraFields);
       const response = await submitToNormaliser(packet);
       const view = toResponseViewModel(response);
       setResponseView(view);
@@ -84,6 +136,17 @@ function App() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handlePickedFile(file: File) {
+    setAttachmentError(null);
+    try {
+      const nextAttachment = await buildAttachmentPayload(file);
+      setAttachment(nextAttachment);
+    } catch (error) {
+      setAttachment(null);
+      setAttachmentError(error instanceof Error ? error.message : "Could not read file");
     }
   }
 
@@ -169,6 +232,60 @@ function App() {
           onChange={(event) => setTextInput(event.target.value)}
           placeholder="Type intent text here"
         />
+
+        <label htmlFor="url-input">URL (optional)</label>
+        <input
+          id="url-input"
+          type="url"
+          value={urlInput}
+          onChange={(event) => setUrlInput(event.target.value)}
+          placeholder="https://example.com/article"
+        />
+
+        <label htmlFor="url-comment">URL comment (optional)</label>
+        <textarea
+          id="url-comment"
+          rows={2}
+          value={urlComment}
+          onChange={(event) => setUrlComment(event.target.value)}
+          placeholder="Why this link matters"
+        />
+
+        <label htmlFor="attachment-input">File (optional)</label>
+        <input
+          id="attachment-input"
+          type="file"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              setAttachment(null);
+              return;
+            }
+            void handlePickedFile(file);
+          }}
+        />
+        <div
+          className="drop-zone"
+          onDragOver={(event) => {
+            event.preventDefault();
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer.files?.[0];
+            if (!file) {
+              return;
+            }
+            void handlePickedFile(file);
+          }}
+        >
+          Drop a file here
+        </div>
+        {attachment ? (
+          <p>
+            Attached: {attachment.filename} ({attachment.mime}, {Math.round(attachment.size / 1024)} KB)
+          </p>
+        ) : null}
+        {attachmentError ? <p className="status-error">{attachmentError}</p> : null}
 
         <Recorder
           onRecorded={(blob) => {

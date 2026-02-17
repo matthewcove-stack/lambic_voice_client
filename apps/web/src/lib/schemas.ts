@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const intentPacketSchema = z.object({
   kind: z.literal('intent'),
   schema_version: z.literal('v1').optional(),
-  intent_type: z.enum(['create_task', 'update_task']).optional(),
+  intent_type: z.enum(['create_task', 'update_task', 'add_list_item', 'capture_note']).optional(),
   natural_language: z.string().optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   source: z.string().optional(),
