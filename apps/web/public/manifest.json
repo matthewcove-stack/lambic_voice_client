@@ -1,0 +1,17 @@
+{
+  "name": "Brain OS — Voice Intake",
+  "short_name": "Brain OS",
+  "description": "Capture voice, text, URLs, and files — routed to Notion.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f4f0",
+  "theme_color": "#5c6b4a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

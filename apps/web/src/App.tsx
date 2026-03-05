@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { ClarificationModal } from "./components/ClarificationModal";
 import { RecentList } from "./components/RecentList";
@@ -7,6 +7,7 @@ import { TranscriptPanel } from "./components/TranscriptPanel";
 import { submitClarificationAnswer, submitToNormaliser } from "./lib/api";
 import { buildPacket, type Destination } from "./lib/packet";
 import { generatePacketFromText } from "./lib/packetGeneration";
+import { enqueueSubmission, processQueue, readQueue } from "./lib/queue";
 import { toResponseViewModel, type ResponseViewModel } from "./lib/response";
 import { parsePacket, type Clarification } from "./lib/schemas";
 import { readRecentSubmissions, writeRecentSubmission, type RecentSubmission } from "./lib/storage";
@@ -71,6 +72,27 @@ function App() {
   const [responseView, setResponseView] = useState<ResponseViewModel | null>(null);
   const [clarification, setClarification] = useState<Clarification | null>(null);
   const [recentItems, setRecentItems] = useState<RecentSubmission[]>(() => readRecentSubmissions());
+  const [queuedCount, setQueuedCount] = useState(() => readQueue().length);
+
+  useEffect(() => {
+    async function drainQueue() {
+      const remaining = await processQueue(async (packet) => {
+        await submitToNormaliser(packet);
+      });
+      setQueuedCount(remaining.length);
+    }
+
+    void drainQueue();
+
+    function handleOnline() {
+      void drainQueue();
+    }
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   const submitText = useMemo(() => transcript.trim() || textInput.trim(), [textInput, transcript]);
 
@@ -130,10 +152,22 @@ function App() {
         setClarification(null);
       }
     } catch (error) {
-      setResponseView({
-        type: "error",
-        message: error instanceof Error ? error.message : "Normaliser submission failed",
-      });
+      if (error instanceof TypeError) {
+        // Network failure — queue for retry when connection restores
+        const extraFields: Record<string, unknown> = {};
+        if (urlInput.trim()) extraFields.url = urlInput.trim();
+        if (urlComment.trim()) extraFields.url_comment = urlComment.trim();
+        if (attachment) extraFields.attachment = attachment;
+        const packet = buildPacket(rawText, destination, clarifications, extraFields);
+        enqueueSubmission(packet, rawText);
+        setQueuedCount((c) => c + 1);
+        setResponseView({ type: "error", message: "Offline — submission queued and will retry automatically." });
+      } else {
+        setResponseView({
+          type: "error",
+          message: error instanceof Error ? error.message : "Normaliser submission failed",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -207,8 +241,11 @@ function App() {
   return (
     <main className="app-shell">
       <header>
-        <h1>Lambic Voice Intake (Phase 2)</h1>
-        <p>Record audio, transcribe, edit transcript, then send to normaliser.</p>
+        <div className="header-row">
+          <h1>Brain OS</h1>
+          {queuedCount > 0 && <span className="queue-badge">{queuedCount} queued</span>}
+        </div>
+        <p>Capture voice, text, URLs, or files — routed to Notion.</p>
       </header>
 
       <section className="intake-panel">
